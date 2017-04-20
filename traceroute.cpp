@@ -22,7 +22,7 @@ using namespace std;
 
 typedef struct{
    string address;
-   string port;
+   //string port;
    struct addrinfo* info;
 } host_t;
 
@@ -38,41 +38,56 @@ void trace(host_t host) {
       setsockopt(host_socket, SOL_IP, IP_RECVERR, &optval, sizeof(optval));
    else if (host.info->ai_family == AF_INET6)
       setsockopt(host_socket, SOL_IPV6, IPV6_RECVERR, &optval, sizeof(optval));
-	
-	unsigned ttl = 0;
-	unsigned port = 33434;
+   
+   unsigned ttl = 0;
+   unsigned port = 33434;
 
    sockaddr_in address = {0};
    memcpy(&address, host.info->ai_addr, host.info->ai_addrlen);
-	
+   
    do {
-		ttl++;
-		if (host.info->ai_family == AF_INET)
-      	setsockopt(host_socket, IPPROTO_IP, IP_TTL, &ttl, sizeof(unsigned));
-   	else if (host.info->ai_family == AF_INET6)
-      	setsockopt(host_socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &ttl, sizeof(unsigned));
-		
-		if (port == 33534) 
-			port = 33434;
+      ttl++;
+      if (host.info->ai_family == AF_INET)
+         setsockopt(host_socket, IPPROTO_IP, IP_TTL, &ttl, sizeof(unsigned));
+      else if (host.info->ai_family == AF_INET6)
+         setsockopt(host_socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &ttl, sizeof(unsigned));
+      
+      if (port == 33534) 
+         port = 33434;
 
-		address.sin_port = htons(port++);
+      address.sin_port = htons(port++);
 
-		if (sendto(host_socket, NULL, 0, 0, (sockaddr*)&address, sizeof(address)) < 0) {
-			perror("Unable to send!");
-      	exit(1);
-		}
-		
-	} while (true);
+      if (sendto(host_socket, NULL, 0, 0, (sockaddr*)&address, sizeof(address)) < 0) {
+         perror("Unable to send!");
+         exit(1);
+      }
+
+      struct timeval send_time, timeout = {0};
+      gettimeofday(&send_time, NULL);
+      timeout.tv_sec = 2;
+
+      fd_set rfds;
+      FD_ZERO(&rfds);
+      FD_SET(host_socket, &rfds);
+
+      while (true) {
+         //TODO
+      }
+      
+   } while (true);
    
 }
 
 int main () {
-   host_t host;
    struct addrinfo input = {0};
    input.ai_family = AF_UNSPEC;
-   input.ai_socktype = SOCK_DGRAM;
+   input.ai_socktype = SOCK_DGRAM;        
    
-   if (!getaddrinfo(host.address.c_str(), host.port.c_str(), &input, &host.info)) {
+   host_t host;
+   host.address = "google.com";
+   //host.port = "21";
+
+   if (getaddrinfo(host.address.c_str(), 0, &input, &host.info) != 0) {
       perror("Invalid host!");
       exit(-1);
    }
