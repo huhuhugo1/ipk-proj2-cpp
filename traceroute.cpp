@@ -13,7 +13,7 @@
 //#include <netinet/in.h>
 //#include <netinet/ip.h>
 //#include <netinet/ip6.h>
-//#include <netinet/icmp6.h>
+#include <netinet/icmp6.h>
 //#include <unistd.h>
 //#include <string>
 //#include <iomanip>
@@ -22,23 +22,79 @@
 #define TIMEOUT 2000
 using namespace std;
 
-void decodeICMP(struct msghdr* message) {
+bool decodeICMP(struct msghdr* message) {
    struct sock_extended_err* sock_err;
 
    for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(message); cmsg; cmsg = CMSG_NXTHDR(message, cmsg)) 
-      if (cmsg->cmsg_level == SOL_IP && cmsg->cmsg_type == IP_RECVERR && (struct sock_extended_err*)CMSG_DATA(cmsg)) {
-         if (sock_err->ee_origin == SO_EE_ORIGIN_ICMP) 
-            switch (sock_err->ee_type) {
-               case ICMP_NET_UNREACH: break;
-               case ICMP_HOST_UNREACH: break;
-            }
+      if (cmsg->cmsg_level == SOL_IP && cmsg->cmsg_type == IP_RECVERR && (struct sock_extended_err*)CMSG_DATA(cmsg)) { 
+         switch (sock_err->ee_type) {
+            case ICMP_UNREACH:
+               switch (sock_err->ee_code) {
+                  case ICMP_UNREACH_NET:
+                     cout << "N!" << endl;
+                     return true;
+                  case ICMP_UNREACH_HOST:
+                     cout << "H!" << endl;
+                     return true;
+                  case ICMP_UNREACH_PROTOCOL:
+                     cout << "P!" << endl;
+                     return true;
+                  case ICMP_UNREACH_PORT:
+                     cout << "ms" << endl;
+                     return true;
+                  case ICMP_UNREACH_FILTER_PROHIB:
+                     cout << "X!" << endl;
+                     return true;
+                  default:
+                     return true;
+               }
+            case ICMP_TIMXCEED:
+               if(sock_err->ee_code == ICMP_TIMXCEED_INTRANS) {
+                  cout << "ms" << endl;
+                  return true;
+               }
+               break;
+            default:
+               return true;
+         }
       } else if (cmsg->cmsg_level == IPPROTO_IPV6 && cmsg->cmsg_type == IPV6_RECVERR && (struct sock_extended_err*)CMSG_DATA(cmsg)) {
-         if (sock_err->ee_origin == SO_EE_ORIGIN_ICMP) 
             switch (sock_err->ee_type) {
-               case ICMP_NET_UNREACH: break;
-               case ICMP_HOST_UNREACH: break;
+               case ICMP6_DST_UNREACH:
+                  switch (sock_err->ee_code) {
+                     case ICMP6_DST_UNREACH_NOROUTE:
+                        cout << "N!" << endl;
+                        return true;
+                     case ICMP6_DST_UNREACH_ADMIN:
+                        cout << "X!" << endl;
+                        return true;
+                     case ICMP6_DST_UNREACH_ADDR:
+                        cout << "H!" << endl;
+                        return true;
+                     case ICMP6_DST_UNREACH_NOPORT:
+                        cout << "ms" << endl;
+                        return true;
+                     default:
+                        return true;
+                  }
+               case ICMP6_TIME_EXCEEDED:
+                  if(sock_err->ee_code == ICMP6_TIME_EXCEED_TRANSIT) {
+                     cout << "ms" << endl;
+                     return true;
+                  }
+                  break;
+               case ICMP6_PARAM_PROB:
+                  if (sock_err->ee_code == ICMP6_PARAMPROB_NEXTHEADER) {
+                     cout << "P!" << endl;
+                     return true;
+                  }
+                  break;
+               default:
+                  return true;
             }
       }
+
+   printf("Unknown error!\n");
+   return false;
 }
 
 void exitError(string message, int code = 1) {
@@ -55,34 +111,34 @@ void trace(struct addrinfo* info) {
    memcpy(&address, info->ai_addr, info->ai_addrlen);
    
    int optval = 1;
-   bool error = false;
+   int error = 0;
    switch (info->ai_family) {
       case AF_INET:
-         error |= setsockopt(host_socket, SOL_IP, IP_RECVERR, &optval, sizeof(optval));
+         error += setsockopt(host_socket, SOL_IP, IP_RECVERR, &optval, sizeof(optval));
          break;
 
       case AF_INET6:
-         error |= setsockopt(host_socket, IPPROTO_IPV6, IPV6_RECVERR, &optval, sizeof(optval));
+         error += setsockopt(host_socket, IPPROTO_IPV6, IPV6_RECVERR, &optval, sizeof(optval));
          break;
    }
 
-   unsigned ttl = 0, port = 33434;
+   unsigned ttl = 1, port = 33434;
    for (; true; ttl++) {
 
       if (port == 33534) port = 33434;
       switch (info->ai_family) {
          case AF_INET:
-            error |= setsockopt(host_socket, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl));
+            error += setsockopt(host_socket, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl));
             ((sockaddr_in*)&address)->sin_port = htons(port++);
             break;
 
          case AF_INET6:
-            error |= setsockopt(host_socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &ttl, sizeof(ttl));
+            error += setsockopt(host_socket, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &ttl, sizeof(ttl));
             ((sockaddr_in6*)&address)->sin6_port = htons(port++);
             break;
       }
 
-      if (error)
+      if (error != 0)
          exitError("Setting socket paramaters failed!");
       
       if (sendto(host_socket, NULL, 0, 0, (sockaddr*)&address, sizeof(address)) < 0)
@@ -96,19 +152,23 @@ void trace(struct addrinfo* info) {
       struct pollfd fd;
       fd.fd = host_socket;
       fd.events = POLLIN;
-      switch (poll(&fd, 1, TIMEOUT)) {
-         case -1: 
-            exitError("Receive error!");
-         case 0: 
-            exitError("TIMEOUT");
-         default:
-            recvmsg(host_socket, &message, MSG_ERRQUEUE);
-            struct timespec time_received;
-            timespec_get(&time_received, TIME_UTC);
+      int ready;
+      do {
+         switch (ready = poll(&fd, 1, TIMEOUT)) {
+            case -1: 
+               exitError("Receive error!");
+            case 0: 
+               //TODO TIMEOUT print
+               break;
+            default:
+               if (recvmsg(host_socket, &message, MSG_ERRQUEUE) < 0)
+                  exitError("Unable to receive!");
 
-            decodeICMP(&message);
-            unsigned ping_ms = (time_received.tv_sec - time_sended.tv_sec) * 1000 + (time_received.tv_nsec - time_sended.tv_nsec) / 1000000;
-      }
+               struct timespec time_received;
+               timespec_get(&time_received, TIME_UTC);
+               unsigned ping_ms = (time_received.tv_sec - time_sended.tv_sec) * 1000 + (time_received.tv_nsec - time_sended.tv_nsec) / 1000000;
+         }
+      } while (ready && !decodeICMP(&message));
       break;
    }
 }
