@@ -7,6 +7,7 @@
 #include <poll.h>
 #include <arpa/inet.h>
 #include <netinet/icmp6.h>
+#include <sys/time.h>
 
 #define TIMEOUT 2000
 enum {
@@ -18,16 +19,16 @@ enum {
 using namespace std;
 
 class Timer {
-   struct timespec start_time;
+   struct timeval start_time;
    public:
       void reset() {
-         timespec_get(&start_time, TIME_UTC);
+         gettimeofday(&start_time, NULL);
       }
 
       double delay() {
-         struct timespec now_time;
-         timespec_get(&now_time, TIME_UTC);
-         return (now_time.tv_sec - start_time.tv_sec) * 1000.0 + (now_time.tv_nsec - start_time.tv_nsec) / 1000000.0;
+         struct timeval now_time;
+         gettimeofday(&now_time, NULL);
+         return (now_time.tv_sec - start_time.tv_sec) * 1000.0 + (now_time.tv_usec - start_time.tv_usec) / 1000.0;
       }
 } timer;
 
