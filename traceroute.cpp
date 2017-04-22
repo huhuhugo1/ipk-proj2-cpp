@@ -78,22 +78,21 @@ int decodeICMP(unsigned ttl, struct msghdr* message, struct timeval delay) {
                   switch (sock_err->ee_code) {
                      case ICMP_UNREACH_NET:
                         printf("%2u   %s   (%s)   N!\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
-                        return ICMP_break;
+                        return ICMP_exit;
                      case ICMP_UNREACH_HOST:
                         printf("%2u   %s   (%s)   H!\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
-                        return ICMP_break;
+                        return ICMP_exit;
                      case ICMP_UNREACH_PROTOCOL:
                         printf("%2u   %s   (%s)   P!\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
-                        return ICMP_break;
+                        return ICMP_exit;
                      case ICMP_UNREACH_PORT:
                         printf("%2u   %s   (%s)   %lu.%03lu ms\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str(), delay.tv_sec, delay.tv_usec);
                         return ICMP_exit;
                      case ICMP_UNREACH_FILTER_PROHIB:
                         printf("%2u   %s   (%s)   X!\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
-                        return ICMP_break;
+                        return ICMP_exit;
                      default:
-                        cout << "WTF3" << endl;
-                        return ICMP_break;
+                        return ICMP_exit;
                   }
                case ICMP_TIMXCEED:
                   if(sock_err->ee_code == ICMP_TIMXCEED_INTRANS) {
@@ -102,8 +101,7 @@ int decodeICMP(unsigned ttl, struct msghdr* message, struct timeval delay) {
                   }
                   break;
                default:
-                  cout << "WTF4" << endl;
-                  return ICMP_break;
+                  return ICMP_exit;
             }
          }
       } else if (cmsg->cmsg_level == IPPROTO_IPV6 && cmsg->cmsg_type == IPV6_RECVERR) {
@@ -113,19 +111,18 @@ int decodeICMP(unsigned ttl, struct msghdr* message, struct timeval delay) {
                   switch (sock_err->ee_code) {
                      case ICMP6_DST_UNREACH_NOROUTE:
                         printf("%2u   %s   (%s)   N!\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
-                        return ICMP_break;
+                        return ICMP_exit;
                      case ICMP6_DST_UNREACH_ADMIN:
                         printf("%2u   %s   (%s)   X!\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
-                        return ICMP_break;
+                        return ICMP_exit;
                      case ICMP6_DST_UNREACH_ADDR:
                         printf("%2u   %s   (%s)   H!\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
-                        return ICMP_break;
+                        return ICMP_exit;
                      case ICMP6_DST_UNREACH_NOPORT:
                         printf("%2u   %s   (%s)   %lu.%03lu ms\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str(), delay.tv_sec, delay.tv_usec);
                         return ICMP_exit;
                      default:
-                        cout << "WTF1" << endl;
-                        return ICMP_break;
+                        return ICMP_exit;
                   }
                case ICMP6_TIME_EXCEEDED:
                   if(sock_err->ee_code == ICMP6_TIME_EXCEED_TRANSIT) {
@@ -136,12 +133,11 @@ int decodeICMP(unsigned ttl, struct msghdr* message, struct timeval delay) {
                case ICMP6_PARAM_PROB:
                   if (sock_err->ee_code == ICMP6_PARAMPROB_NEXTHEADER) {
                      printf("%2u   %s   (%s)   P!\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
-                     return ICMP_break;
+                     return ICMP_exit;
                   }
                   break;
                default:
-                  cout << "wtf2" << endl;
-                  return ICMP_break;
+                  return ICMP_exit;
             }
          }
       }
