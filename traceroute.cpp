@@ -39,17 +39,10 @@ class Timer {
 string decodeAddress(int type, struct sock_extended_err* sock_err) {
    char address[200] = {};
    
-   if (type == AF_INET) {
+   if (type == AF_INET)
       inet_ntop(type, &((struct sockaddr_in*)(sock_err + 1))->sin_addr, address, sizeof(address));
-      struct sockaddr_in sa;
-      sa.sin_family = AF_INET;
-      sa.sin_addr = ((struct sockaddr_in*)(sock_err + 1))->sin_addr;
-      char host[64];
-      if (int res = getnameinfo((struct sockaddr*)&sa, sizeof(sa), host, sizeof(host), NULL, 0, NI_NAMEREQD))
-        printf("%s\n", gai_strerror(res));
-      else
-         cout << string(host) << endl;
-   } else if (type == AF_INET6)
+
+   else if (type == AF_INET6)
       inet_ntop(type, &((struct sockaddr_in6*)(sock_err + 1))->sin6_addr, address, sizeof(address));
    
    return string(address);
@@ -59,18 +52,18 @@ string decodeHostName(int type, struct sock_extended_err* sock_err) {
    char host_name[512];
    
    if (type == AF_INET) {
-      sockaddr_in name = {0};
-      name.sin_family = AF_INET;
-	   name.sin_addr.s_addr = ((struct sockaddr_in*)(sock_err + 1))->sin_addr.s_addr;
-      if (getnameinfo((sockaddr*)&name, sizeof(struct sockaddr_in), host_name, sizeof(host_name), NULL, 0, NI_NAMEREQD))
-         return string(host_name);
+      struct sockaddr_in address;
+      address.sin_family = AF_INET;
+      address.sin_addr = ((struct sockaddr_in*)(sock_err + 1))->sin_addr;
+      if (getnameinfo((struct sockaddr*)&address, sizeof(address), host_name, sizeof(host_name), NULL, 0, NI_NAMEREQD) == 0)
+        return string(host_name);
    }
    else if (type == AF_INET6) {
-      sockaddr_in6 name = {0};
-      name.sin6_family = AF_INET6;
-	   memcpy(name.sin6_addr.s6_addr, ((struct sockaddr_in6*)(sock_err + 1))->sin6_addr.s6_addr, sizeof(((struct sockaddr_in6*)(sock_err + 1))->sin6_addr.s6_addr));
-      if (getnameinfo((sockaddr*)&name, sizeof(struct sockaddr_in), host_name, sizeof(host_name), NULL, 0, NI_NAMEREQD))
-         return string(host_name);
+      struct sockaddr_in6 address;
+      address.sin6_family = AF_INET6;
+	   memcpy(address.sin6_addr.s6_addr, ((struct sockaddr_in6*)(sock_err + 1))->sin6_addr.s6_addr, sizeof(((struct sockaddr_in6*)(sock_err + 1))->sin6_addr.s6_addr));
+      if (getnameinfo((struct sockaddr*)&address, sizeof(address), host_name, sizeof(host_name), NULL, 0, NI_NAMEREQD) == 0)
+        return string(host_name);
    }
 
    return "";
