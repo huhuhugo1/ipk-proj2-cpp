@@ -66,7 +66,7 @@ string decodeHostName(int type, struct sock_extended_err* sock_err) {
         return string(host_name);
    }
 
-   return "";
+   return decodeAddress(type, sock_err);
 }
 
 int decodeICMP(unsigned ttl, struct msghdr* message, struct timeval delay) {
