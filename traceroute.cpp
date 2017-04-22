@@ -25,11 +25,15 @@ class Timer {
          gettimeofday(&start_time, NULL);
       }
 
-      double delay() {
+      timeval delay() {
          struct timeval now_time;
          gettimeofday(&now_time, NULL);
-         return (now_time.tv_sec - start_time.tv_sec) * 1000.0 + (now_time.tv_usec - start_time.tv_usec) / 1000.0;
-      }
+         unsigned long long delay = (now_time.tv_sec - start_time.tv_sec) * 1000000 + (now_time.tv_usec - start_time.tv_usec);
+
+         now_time.tv_sec = delay / 1000;
+         now_time.tv_usec = delay -  now_time.tv_sec * 1000;
+         return now_time;
+      }  
 } timer;
 
 string decodeAddress(int type, struct sock_extended_err* sock_err) {
@@ -44,7 +48,7 @@ string decodeAddress(int type, struct sock_extended_err* sock_err) {
    return string(address);
 }
 
-int decodeICMP(unsigned ttl, struct msghdr* message, double delay) {
+int decodeICMP(unsigned ttl, struct msghdr* message, struct timeval delay) {
    for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(message); cmsg; cmsg = CMSG_NXTHDR(message, cmsg)) 
       if (cmsg->cmsg_level == SOL_IP && cmsg->cmsg_type == IP_RECVERR) {
          if (struct sock_extended_err* sock_err = (struct sock_extended_err*) CMSG_DATA(cmsg)) { 
@@ -61,7 +65,7 @@ int decodeICMP(unsigned ttl, struct msghdr* message, double delay) {
                         printf("%2u   %s   P!\n", ttl, decodeAddress(AF_INET, sock_err).c_str());
                         return ICMP_break;
                      case ICMP_UNREACH_PORT:
-                        printf("%2u   %s   %.3g ms\n", ttl, decodeAddress(AF_INET, sock_err).c_str(), delay);
+                        printf("%2u   %s   %lu.%03lu ms\n", ttl, decodeAddress(AF_INET, sock_err).c_str(), delay.tv_sec, delay.tv_usec);
                         return ICMP_exit;
                      case ICMP_UNREACH_FILTER_PROHIB:
                         printf("%2u   %s   X!\n", ttl, decodeAddress(AF_INET, sock_err).c_str());
@@ -72,7 +76,7 @@ int decodeICMP(unsigned ttl, struct msghdr* message, double delay) {
                   }
                case ICMP_TIMXCEED:
                   if(sock_err->ee_code == ICMP_TIMXCEED_INTRANS) {
-                     printf("%2u   %s   %.3g ms\n", ttl, decodeAddress(AF_INET, sock_err).c_str(), delay);
+                     printf("%2u   %s   %lu.%03lu ms\n", ttl, decodeAddress(AF_INET, sock_err).c_str(), delay.tv_sec, delay.tv_usec);
                      return ICMP_break;
                   }
                   break;
@@ -96,7 +100,7 @@ int decodeICMP(unsigned ttl, struct msghdr* message, double delay) {
                         printf("%2u   %s   H!\n", ttl, decodeAddress(AF_INET6, sock_err).c_str());
                         return ICMP_break;
                      case ICMP6_DST_UNREACH_NOPORT:
-                        printf("%2u   %s   %.3g ms\n", ttl, decodeAddress(AF_INET6, sock_err).c_str(), delay);
+                        printf("%2u   %s   %lu.%03lu ms\n", ttl, decodeAddress(AF_INET6, sock_err).c_str(), delay.tv_sec, delay.tv_usec);
                         return ICMP_exit;
                      default:
                         cout << "WTF1" << endl;
@@ -104,7 +108,7 @@ int decodeICMP(unsigned ttl, struct msghdr* message, double delay) {
                   }
                case ICMP6_TIME_EXCEEDED:
                   if(sock_err->ee_code == ICMP6_TIME_EXCEED_TRANSIT) {
-                     printf("%2u   %s   %.3g ms\n", ttl, decodeAddress(AF_INET6, sock_err).c_str(), delay);
+                     printf("%2u   %s   %lu.%03lu ms\n", ttl, decodeAddress(AF_INET6, sock_err).c_str(), delay.tv_sec, delay.tv_usec);
                      return ICMP_break;
                   }
                   break;
