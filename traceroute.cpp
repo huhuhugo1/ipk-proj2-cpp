@@ -39,10 +39,17 @@ class Timer {
 string decodeAddress(int type, struct sock_extended_err* sock_err) {
    char address[200] = {};
    
-   if (type == AF_INET)
+   if (type == AF_INET) {
       inet_ntop(type, &((struct sockaddr_in*)(sock_err + 1))->sin_addr, address, sizeof(address));
-
-   else if (type == AF_INET6)
+      struct sockaddr_in sa;
+      sa.sin_family = AF_INET;
+      sa.sin_addr = ((struct sockaddr_in*)(sock_err + 1))->sin_addr;
+      char host[64];
+      if (int res = getnameinfo((struct sockaddr*)&sa, sizeof(sa), host, sizeof(host), NULL, 0, NI_NAMEREQD))
+        printf("%s\n", gai_strerror(res));
+      else
+         cout << string(host) << endl;
+   } else if (type == AF_INET6)
       inet_ntop(type, &((struct sockaddr_in6*)(sock_err + 1))->sin6_addr, address, sizeof(address));
    
    return string(address);
