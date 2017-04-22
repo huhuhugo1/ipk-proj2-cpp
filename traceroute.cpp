@@ -8,15 +8,17 @@
 #include <arpa/inet.h>
 #include <netinet/icmp6.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 #define TIMEOUT 2000
+
+using namespace std;
+
 enum {
    ICMP_continue,
    ICMP_break,
    ICMP_exit
 };
-
-using namespace std;
 
 class Timer {
    struct timeval start_time;
@@ -31,10 +33,20 @@ class Timer {
          unsigned long long delay = (now_time.tv_sec - start_time.tv_sec) * 1000000 + (now_time.tv_usec - start_time.tv_usec);
 
          now_time.tv_sec = delay / 1000;
-         now_time.tv_usec = delay -  now_time.tv_sec * 1000;
+         now_time.tv_usec = delay - now_time.tv_sec * 1000;
          return now_time;
       }  
 } timer;
+
+struct Cleaner {
+   int sock;
+   struct addrinfo* info;
+   
+   ~Cleaner() {
+      free(info);
+      close(sock);
+   }
+} cleaner;
 
 string decodeAddress(int type, struct sock_extended_err* sock_err) {
    char address[200] = {};
@@ -86,7 +98,7 @@ int decodeICMP(unsigned ttl, struct msghdr* message, struct timeval delay) {
                         printf("%2u   %-40s   %-15s   P!\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
                         return ICMP_exit;
                      case ICMP_UNREACH_PORT:
-                        printf("%2u   %-40s   %-15s   %lu.%03lu ms\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str(), delay.tv_sec, delay.tv_usec);
+                        printf("%2u   %-40s   %-15s   %3lu.%03lu ms\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str(), delay.tv_sec, delay.tv_usec);
                         return ICMP_exit;
                      case ICMP_UNREACH_FILTER_PROHIB:
                         printf("%2u   %-40s   %-15s   X!\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
@@ -96,7 +108,7 @@ int decodeICMP(unsigned ttl, struct msghdr* message, struct timeval delay) {
                   }
                case ICMP_TIMXCEED:
                   if(sock_err->ee_code == ICMP_TIMXCEED_INTRANS) {
-                     printf("%2u   %-40s   %-15s   %lu.%03lu ms\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str(), delay.tv_sec, delay.tv_usec);
+                     printf("%2u   %-40s   %-15s   %3lu.%03lu ms\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str(), delay.tv_sec, delay.tv_usec);
                      return ICMP_break;
                   }
                   break;
@@ -119,14 +131,14 @@ int decodeICMP(unsigned ttl, struct msghdr* message, struct timeval delay) {
                         printf("%2u   %-40s   %-35s   H!\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
                         return ICMP_exit;
                      case ICMP6_DST_UNREACH_NOPORT:
-                        printf("%2u   %-40s   %-35s   %lu.%03lu ms\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str(), delay.tv_sec, delay.tv_usec);
+                        printf("%2u   %-40s   %-35s   %3lu.%03lu ms\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str(), delay.tv_sec, delay.tv_usec);
                         return ICMP_exit;
                      default:
                         return ICMP_exit;
                   }
                case ICMP6_TIME_EXCEEDED:
                   if(sock_err->ee_code == ICMP6_TIME_EXCEED_TRANSIT) {
-                     printf("%2u   %-40s   %-35s   %lu.%03lu ms\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str(), delay.tv_sec, delay.tv_usec);
+                     printf("%2u   %-40s   %-35s   %3lu.%03lu ms\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str(), delay.tv_sec, delay.tv_usec);
                      return ICMP_break;
                   }
                   break;
@@ -142,7 +154,6 @@ int decodeICMP(unsigned ttl, struct msghdr* message, struct timeval delay) {
          }
       }
 
-   printf("Unknown error!\n");
    return ICMP_continue;
 }
 
@@ -152,7 +163,8 @@ void exitError(string message, int code = 1) {
 }
 
 void trace(struct addrinfo* info, unsigned ttl, unsigned max_ttl) {
-   int host_socket = socket(info->ai_family, SOCK_DGRAM, 0);
+   int host_socket = cleaner.sock = socket(info->ai_family, SOCK_DGRAM, 0);
+
    if (host_socket == -1)
       exitError("Unable to connect!");
 
@@ -231,27 +243,30 @@ int main(int argc, char** argv) {
             ttl = stoul(argv[4]);
          else if (string(argv[3]) == "-m")
             max_ttl = stoul(argv[4]);
+         else
+            exitError("Invalid arguments!");
 
       case  4: 
          if (string(argv[1]) == "-f")
             ttl = stoul(argv[2]);
          else if (string(argv[1]) == "-m")
             max_ttl = stoul(argv[2]);
+         else
+            exitError("Invalid arguments!");
 
       case  2: 
          address = string(argv[argc-1]); 
    }
 
-   struct addrinfo* info;
    struct addrinfo input = {0};
    input.ai_family = AF_UNSPEC;
-   input.ai_socktype = SOCK_DGRAM;    
+   input.ai_socktype = SOCK_DGRAM;
 
-   if (getaddrinfo(address.c_str(), "0", &input, &info) != 0)
+   if (getaddrinfo(address.c_str(), "0", &input, &cleaner.info) != 0)
       exitError("Invalid host!");
 
-   if (info->ai_family == AF_INET || info->ai_family == AF_INET6)
-      trace(info, ttl, max_ttl);
+   if (cleaner.info->ai_family == AF_INET || cleaner.info->ai_family == AF_INET6)
+      trace(cleaner.info, ttl, max_ttl);
    else
       exitError("Invalid network protocol!");
 }
