@@ -89,19 +89,19 @@ int decodeICMP(unsigned ttl, struct msghdr* message, struct timeval delay) {
                case ICMP_UNREACH:
                   switch (sock_err->ee_code) {
                      case ICMP_UNREACH_NET:
-                        printf("%2u   %-40s   %-15s   N!\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
+                        printf("%2u   %-40s   %-15s          N!\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
                         return ICMP_exit;
                      case ICMP_UNREACH_HOST:
-                        printf("%2u   %-40s   %-15s   H!\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
+                        printf("%2u   %-40s   %-15s          H!\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
                         return ICMP_exit;
                      case ICMP_UNREACH_PROTOCOL:
-                        printf("%2u   %-40s   %-15s   P!\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
+                        printf("%2u   %-40s   %-15s          P!\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
                         return ICMP_exit;
                      case ICMP_UNREACH_PORT:
                         printf("%2u   %-40s   %-15s   %3lu.%03lu ms\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str(), delay.tv_sec, delay.tv_usec);
                         return ICMP_exit;
                      case ICMP_UNREACH_FILTER_PROHIB:
-                        printf("%2u   %-40s   %-15s   X!\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
+                        printf("%2u   %-40s   %-15s          X!\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
                         return ICMP_exit;
                      default:
                         return ICMP_exit;
@@ -122,13 +122,13 @@ int decodeICMP(unsigned ttl, struct msghdr* message, struct timeval delay) {
                case ICMP6_DST_UNREACH:
                   switch (sock_err->ee_code) {
                      case ICMP6_DST_UNREACH_NOROUTE:
-                        printf("%2u   %-40s   %-35s   N!\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
+                        printf("%2u   %-40s   %-35s          N!\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
                         return ICMP_exit;
                      case ICMP6_DST_UNREACH_ADMIN:
-                        printf("%2u   %-40s   %-35s   X!\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
+                        printf("%2u   %-40s   %-35s          X!\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
                         return ICMP_exit;
                      case ICMP6_DST_UNREACH_ADDR:
-                        printf("%2u   %-40s   %-35s   H!\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
+                        printf("%2u   %-40s   %-35s          H!\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
                         return ICMP_exit;
                      case ICMP6_DST_UNREACH_NOPORT:
                         printf("%2u   %-40s   %-35s   %3lu.%03lu ms\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str(), delay.tv_sec, delay.tv_usec);
@@ -144,7 +144,7 @@ int decodeICMP(unsigned ttl, struct msghdr* message, struct timeval delay) {
                   break;
                case ICMP6_PARAM_PROB:
                   if (sock_err->ee_code == ICMP6_PARAMPROB_NEXTHEADER) {
-                     printf("%2u   %-40s   %-35s   P!\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
+                     printf("%2u   %-40s   %-35s          P!\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
                      return ICMP_exit;
                   }
                   break;
