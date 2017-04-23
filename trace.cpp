@@ -218,9 +218,8 @@ void trace(struct addrinfo* info, unsigned ttl, unsigned max_ttl) {
          default:
             if (recvmsg(host_socket, &message, MSG_ERRQUEUE) == -1)
                exitError("Unable to receive!");
+            next_ttl = decodeICMP(ttl, &message, timer.delay());
       }
-
-      next_ttl = decodeICMP(ttl, &message, timer.delay());
    }
 }
 
