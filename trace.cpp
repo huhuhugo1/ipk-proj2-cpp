@@ -219,8 +219,11 @@ void trace(struct addrinfo* info, unsigned ttl, unsigned max_ttl) {
          switch (ready = poll(&fd, 1, TIMEOUT)) {
             case -1: 
                exitError("Receive error!");
-            case 0: 
-               printf("%2u   *\n", ttl); 
+            case 0:
+               if (info->ai_family == AF_INET)
+                  printf("%2u                                                                         *\n", ttl);
+               else
+                  printf("%2u                                                                                             *\n", ttl);
                break;
             default:
                if (recvmsg(host_socket, &message, MSG_ERRQUEUE) == -1)
