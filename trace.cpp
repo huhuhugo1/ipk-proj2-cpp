@@ -14,12 +14,6 @@
 
 using namespace std;
 
-enum {
-   ICMP_continue,
-   ICMP_break,
-   ICMP_exit
-};
-
 class Timer {
    struct timeval start_time;
    public:
@@ -90,30 +84,30 @@ int decodeICMP(unsigned ttl, struct msghdr* message, struct timeval delay) {
                   switch (sock_err->ee_code) {
                      case ICMP_UNREACH_NET:
                         printf("%2u  N!          %-40s  %-15s\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
-                        return ICMP_exit;
+                        return 0;
                      case ICMP_UNREACH_HOST:
                         printf("%2u  H!          %-40s  %-15s\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
-                        return ICMP_exit;
+                        return 0;
                      case ICMP_UNREACH_PROTOCOL:
                         printf("%2u  P!          %-40s  %-15s\n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
-                        return ICMP_exit;
+                        return 0;
                      case ICMP_UNREACH_PORT:
                         printf("%2u  %3lu.%03lu ms %-40s   %-15s\n", ttl, delay.tv_sec, delay.tv_usec, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
-                        return ICMP_exit;
+                        return 0;
                      case ICMP_UNREACH_FILTER_PROHIB:
                         printf("%2u  X!          %-40s  %-15s \n", ttl, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
-                        return ICMP_exit;
+                        return 0;
                      default:
-                        return ICMP_exit;
+                        return 0;
                   }
                case ICMP_TIMXCEED:
                   if(sock_err->ee_code == ICMP_TIMXCEED_INTRANS) {
                      printf("%2u  %3lu.%03lu ms %-40s   %-15s\n", ttl, delay.tv_sec, delay.tv_usec, decodeHostName(AF_INET, sock_err).c_str(), decodeAddress(AF_INET, sock_err).c_str());
-                     return ICMP_break;
+                     return 1;
                   }
                   break;
                default:
-                  return ICMP_exit;
+                  return 0;
             }
          }
       } else if (cmsg->cmsg_level == IPPROTO_IPV6 && cmsg->cmsg_type == IPV6_RECVERR) {
@@ -123,38 +117,38 @@ int decodeICMP(unsigned ttl, struct msghdr* message, struct timeval delay) {
                   switch (sock_err->ee_code) {
                      case ICMP6_DST_UNREACH_NOROUTE:
                         printf("%2u  N!          %-40s  %-15s\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
-                        return ICMP_exit;
+                        return 0;
                      case ICMP6_DST_UNREACH_ADMIN:
                         printf("%2u  X!          %-40s  %-15s\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
-                        return ICMP_exit;
+                        return 0;
                      case ICMP6_DST_UNREACH_ADDR:
                         printf("%2u  H!          %-40s  %-15s\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
-                        return ICMP_exit;
+                        return 0;
                      case ICMP6_DST_UNREACH_NOPORT:
                         printf("%2u  %3lu.%03lu ms %-40s   %-15s\n", ttl, delay.tv_sec, delay.tv_usec, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
-                        return ICMP_exit;
+                        return 0;
                      default:
-                        return ICMP_exit;
+                        return 0;
                   }
                case ICMP6_TIME_EXCEEDED:
                   if(sock_err->ee_code == ICMP6_TIME_EXCEED_TRANSIT) {
                      printf("%2u  %3lu.%03lu ms %-40s   %-15s\n", ttl, delay.tv_sec, delay.tv_usec, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
-                     return ICMP_break;
+                     return 1;
                   }
                   break;
                case ICMP6_PARAM_PROB:
                   if (sock_err->ee_code == ICMP6_PARAMPROB_NEXTHEADER) {
                      printf("%2u  P!          %-40s  %-15s\n", ttl, decodeHostName(AF_INET6, sock_err).c_str(), decodeAddress(AF_INET6, sock_err).c_str());
-                     return ICMP_exit;
+                     return 0;
                   }
                   break;
                default:
-                  return ICMP_exit;
+                  return 0;
             }
          }
       }
 
-   return ICMP_continue;
+   return 0;
 }
 
 void exitError(string message, int code = 1) {
@@ -178,7 +172,7 @@ void trace(struct addrinfo* info, unsigned ttl, unsigned max_ttl) {
    else
       error |= setsockopt(host_socket, IPPROTO_IPV6, IPV6_RECVERR, &optval, sizeof(optval));
    
-   for (unsigned repeat = ICMP_continue, port = 33434; ttl <= max_ttl && repeat != ICMP_exit; ttl++, port++) {
+   for (unsigned next_ttl = 1, port = 33434; ttl <= max_ttl && next_ttl; ttl++, port++) {
       if (port == 33534) port = 33434;
       
       if (info->ai_family == AF_INET) {
@@ -214,19 +208,19 @@ void trace(struct addrinfo* info, unsigned ttl, unsigned max_ttl) {
       struct pollfd fd;
       fd.fd = host_socket;
       fd.events = POLLIN;
-      int ready;
-      do {
-         switch (ready = poll(&fd, 1, TIMEOUT)) {
-            case -1: 
-               exitError("Receive error!");
-            case 0:
-               printf("%2u  *\n", ttl);
-               break;
-            default:
-               if (recvmsg(host_socket, &message, MSG_ERRQUEUE) == -1)
-                  exitError("Unable to receive!");
-         }
-      } while (ready && (repeat = decodeICMP(ttl, &message, timer.delay())) == ICMP_continue);
+
+      switch (poll(&fd, 1, TIMEOUT)) {
+         case -1: 
+            exitError("Receive error!");
+         case 0:
+            printf("%2u  *\n", ttl);
+            break;
+         default:
+            if (recvmsg(host_socket, &message, MSG_ERRQUEUE) == -1)
+               exitError("Unable to receive!");
+      }
+
+      next_ttl = decodeICMP(ttl, &message, timer.delay());
    }
 }
 
