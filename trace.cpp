@@ -232,17 +232,17 @@ int main(int argc, char** argv) {
          exitError("Invalid arguments!");
 
       case  6: 
-         if (string(argv[3]) == "-f")
+         if (string(argv[3]) == "-f" && isdigit(argv[4][0]))
             ttl = stoul(argv[4]);
-         else if (string(argv[3]) == "-m")
+         else if (string(argv[3]) == "-m" && isdigit(argv[4][0]))
             max_ttl = stoul(argv[4]);
          else
             exitError("Invalid arguments!");
 
       case  4: 
-         if (string(argv[1]) == "-f")
+         if (string(argv[1]) == "-f" && isdigit(argv[2][0]))
             ttl = stoul(argv[2]);
-         else if (string(argv[1]) == "-m")
+         else if (string(argv[1]) == "-m" && isdigit(argv[2][0]))
             max_ttl = stoul(argv[2]);
          else
             exitError("Invalid arguments!");
@@ -262,4 +262,6 @@ int main(int argc, char** argv) {
       trace(cleaner.info, ttl, max_ttl);
    else
       exitError("Invalid network protocol!");
+
+   return 0;
 }
