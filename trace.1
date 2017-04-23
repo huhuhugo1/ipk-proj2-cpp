@@ -1,0 +1,48 @@
+.TH TRACE 1 "23 April 2017" "Trace" "Trace For Linux"
+
+.SH NAME
+trace \- print the route packets trace to network host
+
+.SH SYNOPSIS
+.BR trace " [-f first_ttl] [-m max_ttl] <host>
+
+.SH DESCRIPTION
+.I trace 
+tracks the route packets taken from an IP network on their
+way to a given host. It utilizes the IP protocol's time to live (TTL) field
+and attempts to elicit an ICMP TIME_EXCEEDED response from each gateway
+along the path to the host.
+
+The only required parameter is the hostname or IP address (IPv4 or IPv6) of the destination
+.BR host \.
+
+This program attempts to trace the route an IP packet would follow to some 
+internet host by launching probe
+packets with a small ttl (time to live) then listening for an
+ICMP "time exceeded" reply from a gateway.  We start our probes
+with a ttl of one and increase by one until we get an ICMP "port
+unreachable", which means we got to the "host", or hit a max (which
+defaults to 30 hops). If there is no response within a 2.0 seconds,
+an "*" is printed for that probe.
+.PP
+After the trip time, some additional annotation can be printed:
+.BR !H ,
+.BR !N ,
+or
+.B !P
+(host, network or protocol unreachable),
+.B !X
+(communication administratively prohibited).
+
+We don't want the destination host to process the UDP probe packets,
+so the destination port is incremented with every probe (in range 33464 to 33564).
+
+.SH OPTIONS
+.TP
+.BI \-f " first_ttl"
+Specifies with what TTL to start. Defaults to 1.
+.TP
+.BI \-m " max_ttl"
+Specifies the maximum number of hops (max time-to-live value)
+.I trace
+will probe. The default is 30.
